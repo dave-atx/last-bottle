@@ -1,0 +1,25 @@
+# fly.toml app configuration file generated for dm-lastbottle on 2024-07-15T09:15:27-07:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'dm-lastbottle'
+primary_region = 'sjc'
+
+[build]
+  [build.args]
+    GO_VERSION = '1.22.5'
+
+[env]
+  PORT = '8080'
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ['app']
+
+[[vm]]
+  size = 'shared-cpu-1x'

@@ -1,0 +1,33 @@
+//
+//  Last_Bottle_WatcherUITestsLaunchTests.swift
+//  Last Bottle WatcherUITests
+//
+//  Created by Marquard, Dave on 7/15/24.
+//
+
+import XCTest
+
+final class Last_Bottle_WatcherUITestsLaunchTests: XCTestCase {
+
+    override class var runsForEachTargetApplicationUIConfiguration: Bool {
+        true
+    }
+
+    override func setUpWithError() throws {
+        continueAfterFailure = false
+    }
+
+    @MainActor
+    func testLaunch() throws {
+        let app = XCUIApplication()
+        app.launch()
+
+        // Insert steps here to perform after app launch but before taking a screenshot,
+        // such as logging into a test account or navigating somewhere in the app
+
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = "Launch Screen"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+}
