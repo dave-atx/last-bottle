@@ -7,19 +7,28 @@ app = 'dm-lastbottle'
 primary_region = 'sjc'
 
 [build]
-  [build.args]
-    GO_VERSION = '1.22.5'
+[build.args]
+GO_VERSION = '1.22.5'
 
 [env]
-  PORT = '8080'
+PORT = '8080'
 
 [http_service]
-  internal_port = 8080
-  force_https = true
-  auto_stop_machines = true
-  auto_start_machines = true
-  min_machines_running = 0
-  processes = ['app']
+internal_port = 8080
+force_https = true
+auto_stop_machines = true
+auto_start_machines = true
+min_machines_running = 0
+processes = ['app']
+
+[[services.http_checks]]
+grace_period = "3s"
+interval = "30s"
+restart_limit = 3
+timeout = "2s"
+method = "get"
+protocol = "http"
+path = "/api/v1/healthcheck"
 
 [[vm]]
-  size = 'shared-cpu-1x'
+size = 'shared-cpu-1x'

@@ -215,6 +215,22 @@ func registerForPushNotifications(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Device registered for push notifications"})
 }
 
+func healthcheck(c *gin.Context) {
+	offersUrl := fmt.Sprintf("%s/offers", supabaseUrl)
+	resp, err := resty.New().R().
+		SetAuthToken(supabaseKey).
+		SetHeader("apikey", supabaseKey).
+		SetQueryParam("select", "id").
+		SetQueryParam("limit", "1").
+		Head(offersUrl)
+
+	if err != nil || !resp.IsSuccess() {
+		c.AbortWithStatus(500)
+	} else {
+		c.JSON(http.StatusNoContent, nil)
+	}
+}
+
 func main() {
 	if supabaseUrl == "" || supabaseKey == "" || apnsKeyID == "" || apnsTeamID == "" || apnsAuthKey == "" || apnsTopic == "" {
 		log.Fatalf("Environment variables SUPABASE_URL, SUPABASE_KEY, APNS_KEY_ID, APNS_TEAM_ID, APNS_AUTH_KEY, and APNS_TOPIC must be set")
@@ -234,6 +250,7 @@ func main() {
 	}()
 
 	router := gin.Default()
+	router.GET("/api/v1/healthcheck", healthcheck)
 	router.GET("/api/v1/offers", getOffers)
 	router.POST("/api/v1/register", registerForPushNotifications)
 	router.Run(":8080")
