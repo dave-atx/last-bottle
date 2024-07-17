@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -24,6 +25,8 @@ var apnsTeamID = os.Getenv("APNS_TEAM_ID")
 var apnsAuthKey = os.Getenv("APNS_AUTH_KEY")
 var apnsTopic = os.Getenv("APNS_TOPIC")
 
+const lastbottle_url = "https://www.lastbottlewines.com/"
+
 type Offer struct {
 	ID          string      `json:"id"`
 	Name        string      `json:"name"`
@@ -44,40 +47,45 @@ type Device struct {
 	DeviceToken string `json:"device_token"`
 }
 
-func fetchAndParse() {
-	fmt.Println("Fetching...")
+func fetchAndParse(url string) (*Offer, error) {
+	log.Println("Fetching...")
 	client := resty.New()
-	resp, err := client.R().Get("https://www.lastbottlewines.com/")
+	resp, err := client.R().Get(url)
 	if err != nil {
 		log.Printf("Failed to fetch page: %v", err)
+		return nil, err
 	}
 
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(resp.String()))
 	if err != nil {
 		log.Printf("Failed to parse HTML: %v", err)
-		return
+		return nil, err
 	}
 
-	name := strings.TrimSpace(doc.Find(".offer-name").Text())
-	varietal := strings.ReplaceAll(strings.TrimSpace(doc.Find("li:contains('Varietal')").Text()), "Varietal: ", "")
-	vintageText := findYear(name)
-	vintage := ""
+	offer := &Offer{}
+	offer.Name = strings.TrimSpace(doc.Find(".offer-name").Text())
+	offer.Varietal = strings.ReplaceAll(strings.TrimSpace(doc.Find("li:contains('Varietal')").Text()), "Varietal: ", "")
+	vintageText := findYear(offer.Name)
+	offer.Vintage = ""
 	if vintageText != "" {
-		vintage = vintageText + "-01-01"
+		offer.Vintage = vintageText + "-01-01"
 	}
 
-	price := strings.TrimSpace(doc.Find(".price-holder .amount.lb").First().Text())
-	retail := strings.TrimSpace(doc.Find(".price-holder:has(.retail) .amount").First().Text())
-	bestWeb := strings.TrimSpace(doc.Find(".price-holder:has(.bestweb) .amount").First().Text())
-	image, _ := doc.Find(".offer-image img").Attr("src")
-	purchaseURL, _ := doc.Find(".purchase-it a").Attr("href")
+	offer.Price = json.Number(strings.TrimSpace(doc.Find(".price-holder .amount.lb").First().Text()))
+	offer.Retail = json.Number(strings.TrimSpace(doc.Find(".price-holder:has(.retail) .amount").First().Text()))
+	offer.BestWeb = json.Number(strings.TrimSpace(doc.Find(".price-holder:has(.bestweb) .amount").First().Text()))
+	offer.Image, _ = doc.Find(".offer-image img").Attr("src")
+	offer.PurchaseURL, _ = doc.Find(".purchase-it a").Attr("href")
+	offer.ID = extractID(offer.PurchaseURL)
+	return offer, nil
+}
 
-	id := extractID(purchaseURL)
-
+func notifyAndStoreOnChange(offer *Offer) error {
 	// Check the most recent entry in the database
 	recentOffers := []Offer{}
 	offersUrl := fmt.Sprintf("%s/offers", supabaseUrl)
-	resp, err = client.R().
+	client := resty.New()
+	resp, err := client.R().
 		SetAuthToken(supabaseKey).
 		SetHeader("apikey", supabaseKey).
 		SetQueryParam("select", "id").
@@ -88,38 +96,49 @@ func fetchAndParse() {
 
 	if err != nil {
 		log.Printf("unable to select latest offer: %v", err)
-		return
+		return err
 	}
 
-	if len(recentOffers) == 0 || recentOffers[0].ID != id {
-		newOffer := Offer{
-			ID:          id,
-			Name:        name,
-			Varietal:    varietal,
-			Vintage:     vintage,
-			Price:       json.Number(price),
-			Retail:      json.Number(retail),
-			BestWeb:     json.Number(bestWeb),
-			Image:       image,
-			PurchaseURL: purchaseURL,
-		}
-
+	if len(recentOffers) == 0 || recentOffers[0].ID != offer.ID {
 		resp, err = client.R().
 			SetAuthToken(supabaseKey).
 			SetHeader("apikey", supabaseKey).
-			SetBody(newOffer).
+			SetBody(offer).
 			Post(offersUrl)
 
 		if err != nil || !resp.IsSuccess() {
 			log.Printf("unable to insert order: %v", err)
-			return
+			return err
 		}
 
-		log.Printf("Inserted Offer: %+v\n", newOffer)
+		log.Printf("Inserted Offer: %+v\n", offer)
 		// sendPushNotification(newOffer)
 	} else {
 		log.Println("No new offer to insert")
 	}
+	return nil
+}
+
+func poll(url string) {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			offer, err := fetchAndParse(url)
+			if err != nil {
+				log.Printf("unable to fetch: %v", err)
+				return
+			}
+			err = notifyAndStoreOnChange(offer)
+			if err != nil {
+				log.Printf("unable to store or notify: %v", err)
+				return
+			}
+		}
+	}
+
 }
 
 func findYear(text string) string {
@@ -232,22 +251,26 @@ func healthcheck(c *gin.Context) {
 }
 
 func main() {
+	url := flag.String("url", lastbottle_url, "specify the url to poll")
+	once := flag.Bool("once", false, "do not poll, parse once and print to stdout")
+	flag.Parse()
+
+	if *once {
+		offer, err := fetchAndParse(*url)
+		if err != nil {
+			fmt.Printf("unable to parse: %v", err)
+			os.Exit(1)
+		}
+		json, _ := json.MarshalIndent(offer, "", "\t")
+		fmt.Println(string(json))
+		os.Exit(0)
+	}
+
 	if supabaseUrl == "" || supabaseKey == "" || apnsKeyID == "" || apnsTeamID == "" || apnsAuthKey == "" || apnsTopic == "" {
 		log.Fatalf("Environment variables SUPABASE_URL, SUPABASE_KEY, APNS_KEY_ID, APNS_TEAM_ID, APNS_AUTH_KEY, and APNS_TOPIC must be set")
 	}
 
-	go func() {
-		ticker := time.NewTicker(30 * time.Second)
-		defer ticker.Stop()
-
-		fetchAndParse()
-		for {
-			select {
-			case <-ticker.C:
-				fetchAndParse()
-			}
-		}
-	}()
+	go poll(*url)
 
 	router := gin.Default()
 	router.GET("/api/v1/healthcheck", healthcheck)
