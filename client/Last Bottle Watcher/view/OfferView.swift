@@ -11,22 +11,27 @@ struct OfferView: View {
     var offer: Offer
     
     var body: some View {
-        VStack {
+        HStack {
             AsyncImage(url: offer.imageURL) { image in
                 image
                     .resizable()
-                    .scaledToFit()
+                    .scaledToFill()
+                    .clipped()
+                    .frame(width: 75, height: 150)
             } placeholder: {
                 ProgressView()
             }
-            .padding(.all)
-            .frame(width: 200, height: 200)
-                
+            .frame(width: 75, height: 150)
+            .padding(.trailing)
+            
             Text(offer.name)
                 .font(.subheadline)
-                .padding([.leading, .bottom, .trailing])
-                
+                .padding(.leading)
+                .frame(maxHeight: 150)
+            
+            Spacer()
         }
+        
     }
 }
 
