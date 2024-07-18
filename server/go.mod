@@ -3,14 +3,12 @@ module marquard.org/last-bottle
 go 1.22.5
 
 require (
-	github.com/PuerkitoBio/goquery v1.9.2
 	github.com/gin-gonic/gin v1.10.0
 	github.com/go-resty/resty/v2 v2.13.1
 	github.com/sideshow/apns2 v0.23.0
 )
 
 require (
-	github.com/andybalholm/cascadia v1.3.2 // indirect
 	github.com/bytedance/sonic v1.11.6 // indirect
 	github.com/bytedance/sonic/loader v0.1.1 // indirect
 	github.com/cloudwego/base64x v0.1.4 // indirect

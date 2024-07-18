@@ -7,10 +7,10 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
-	"github.com/PuerkitoBio/goquery"
 	"github.com/gin-gonic/gin"
 	"github.com/go-resty/resty/v2"
 	"github.com/sideshow/apns2"
@@ -31,12 +31,28 @@ type Offer struct {
 	ID          string      `json:"id"`
 	Name        string      `json:"name"`
 	Varietal    string      `json:"varietal"`
+	Country     string      `json:"country"`
+	Region      string      `json:"region"`
+	Appellation string      `json:"appellation"`
 	Vintage     string      `json:"vintage"`
+	BottleSize  string      `json:"bottle_size"`
 	Price       json.Number `json:"price"`
 	Retail      json.Number `json:"retail"`
 	BestWeb     json.Number `json:"best_web"`
 	Image       string      `json:"image"`
-	PurchaseURL string      `json:"purchase_url"`
+}
+
+type DetailPage struct {
+	ProductName    string      `json:"ProductName"`
+	Type           string      `json:"Type"`
+	Vintage        string      `json:"Vintage"`
+	Varietal       string      `json:"Varietal"`
+	Region         string      `json:"Region"`
+	Appellation    string      `json:"Appellation"`
+	BottleSize     string      `json:"BottleSize"`
+	ImageURL       string      `json:"ImageURL"`
+	Price          json.Number `json:"Price"`
+	CompareAtPrice json.Number `json:"CompareAtPrice"`
 }
 
 type PushNotificationRegistration struct {
@@ -56,27 +72,62 @@ func fetchAndParse(url string) (*Offer, error) {
 		return nil, err
 	}
 
-	doc, err := goquery.NewDocumentFromReader(strings.NewReader(resp.String()))
+	body := resp.String()
+	regex := regexp.MustCompile(`//s3.amazonaws.com/lastbottle/products/([^-]+)-[^"]+`)
+	matches := regex.FindStringSubmatch(body)
+	if len(matches) < 2 {
+		log.Printf("Did not find LastBottle ID")
+		return nil, fmt.Errorf("Did not find LastBottle ID")
+	}
+	offer := &Offer{
+		ID: matches[1],
+	}
+
+	regex = regexp.MustCompile(`<span class="amount">(\d+)</span>\s*</div>\s*<p class="bestweb"`)
+	matches = regex.FindStringSubmatch(body)
+	if len(matches) > 1 {
+		offer.BestWeb = json.Number(matches[1])
+	}
+
+	regex = regexp.MustCompile(`<strong>Country</strong>\s*:\s*([^<]+)`)
+	matches = regex.FindStringSubmatch(body)
+	if len(matches) > 1 {
+		offer.Country = matches[1]
+	}
+
+	resp, err = client.R().
+		Get(fmt.Sprintf("https://www.lastbottlewines.com/product/detail/%s.html", offer.ID))
 	if err != nil {
-		log.Printf("Failed to parse HTML: %v", err)
-		return nil, err
+		log.Printf("Could not load detail page")
+		return nil, fmt.Errorf("Could not load detail page")
 	}
 
-	offer := &Offer{}
-	offer.Name = strings.TrimSpace(doc.Find(".offer-name").Text())
-	offer.Varietal = strings.ReplaceAll(strings.TrimSpace(doc.Find("li:contains('Varietal')").Text()), "Varietal: ", "")
-	vintageText := findYear(offer.Name)
-	offer.Vintage = ""
-	if vintageText != "" {
-		offer.Vintage = vintageText + "-01-01"
+	regex = regexp.MustCompile(`var\s+item\s*=([^\}]+\})`)
+	matches = regex.FindStringSubmatch(resp.String())
+	if len(matches) < 2 {
+		log.Printf("Did not find detail page JSON object")
+		return nil, fmt.Errorf("Did not find detail page JSON object")
 	}
 
-	offer.Price = json.Number(strings.TrimSpace(doc.Find(".price-holder .amount.lb").First().Text()))
-	offer.Retail = json.Number(strings.TrimSpace(doc.Find(".price-holder:has(.retail) .amount").First().Text()))
-	offer.BestWeb = json.Number(strings.TrimSpace(doc.Find(".price-holder:has(.bestweb) .amount").First().Text()))
-	offer.Image, _ = doc.Find(".offer-image img").Attr("src")
-	offer.PurchaseURL, _ = doc.Find(".purchase-it a").Attr("href")
-	offer.ID = extractID(offer.PurchaseURL)
+	detailPage := DetailPage{}
+	json.Unmarshal([]byte(matches[1]), &detailPage)
+
+	offer.Name = strings.TrimSpace(detailPage.ProductName)
+	offer.Varietal = detailPage.Varietal
+	offer.Region = detailPage.Region
+	offer.Appellation = detailPage.Appellation
+	offer.BottleSize = detailPage.BottleSize
+	offer.Price = detailPage.Price
+	offer.Retail = detailPage.CompareAtPrice
+	offer.Image = detailPage.ImageURL
+
+	if detailPage.Vintage == "" {
+		regex = regexp.MustCompile(`(?:19|20)\d\d`)
+		offer.Vintage = regex.FindString(detailPage.ProductName)
+	} else {
+		offer.Vintage = detailPage.Vintage
+	}
+
 	return offer, nil
 }
 
@@ -138,24 +189,6 @@ func poll(url string) {
 			}
 		}
 	}
-
-}
-
-func findYear(text string) string {
-	// Extract the year (e.g., 2019) from the text
-	year := ""
-	for _, word := range strings.Fields(text) {
-		if len(word) == 4 && word[0] >= '0' && word[0] <= '9' {
-			year = word
-			break
-		}
-	}
-	return year
-}
-
-func extractID(url string) string {
-	parts := strings.Split(url, "/")
-	return parts[len(parts)-2]
 }
 
 func sendPushNotification(offer Offer) {
