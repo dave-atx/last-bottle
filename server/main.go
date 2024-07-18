@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gin-contrib/static"
 	"github.com/gin-gonic/gin"
 	"github.com/go-resty/resty/v2"
 	"github.com/sideshow/apns2"
@@ -127,6 +128,9 @@ func fetchAndParse(url string) (*Offer, error) {
 	} else {
 		offer.Vintage = detailPage.Vintage
 	}
+	if len(offer.Vintage) == 4 {
+		offer.Vintage = fmt.Sprintf("%s-01-01", offer.Vintage)
+	}
 
 	return offer, nil
 }
@@ -158,7 +162,7 @@ func notifyAndStoreOnChange(offer *Offer) error {
 			Post(offersUrl)
 
 		if err != nil || !resp.IsSuccess() {
-			log.Printf("unable to insert order: %v", err)
+			log.Printf("unable to insert offer: %v, offer: %v, status: %d, body: %s", err, offer, resp.StatusCode(), resp.String())
 			return err
 		}
 
@@ -306,6 +310,7 @@ func main() {
 	go poll(*url)
 
 	router := gin.Default()
+	router.Use(static.Serve("/", static.LocalFile("/srv/http", false)))
 	router.GET("/api/v1/healthcheck", healthcheck)
 	router.GET("/api/v1/offers", getOffers)
 	router.POST("/api/v1/register", registerForPushNotifications)

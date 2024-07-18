@@ -11,4 +11,5 @@ RUN go build -v -o /run-app .
 FROM gcr.io/distroless/base-debian12:nonroot
 
 COPY --from=builder /run-app /usr/local/bin/
+COPY --from=builder /usr/src/app/static/ /srv/http/
 CMD ["run-app"]

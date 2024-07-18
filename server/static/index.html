@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Social Media Feed</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                margin: 0;
+                padding: 0;
+                background-color: #f4f4f4;
+            }
+            .feed-container {
+                max-width: 600px;
+                margin: 20px auto;
+                padding: 20px;
+                background-color: white;
+                box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            }
+            .feed-item {
+                border-bottom: 1px solid #ddd;
+                padding: 10px 0;
+            }
+            .feed-item:last-child {
+                border-bottom: none;
+            }
+            .feed-item img {
+                max-width: 100%;
+                height: auto;
+            }
+            .feed-item h2 {
+                margin: 10px 0 5px;
+                font-size: 18px;
+            }
+            .feed-item p {
+                margin: 5px 0;
+            }
+            .feed-item .price {
+                color: green;
+                font-weight: bold;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="feed-container" id="feed"></div>
+
+        <script>
+            document.addEventListener("DOMContentLoaded", () => {
+                const feedContainer = document.getElementById("feed");
+
+                fetch("https://lb.marquard.org/api/v1/offers")
+                    .then((response) => response.json())
+                    .then((data) => {
+                        data.forEach((item) => {
+                            const feedItem = document.createElement("div");
+                            feedItem.className = "feed-item";
+
+                            const image = document.createElement("img");
+                            image.src = item.image;
+                            feedItem.appendChild(image);
+
+                            const title = document.createElement("h2");
+                            title.textContent = item.name;
+                            feedItem.appendChild(title);
+
+                            const varietal = document.createElement("p");
+                            varietal.textContent = `Varietal: ${item.varietal}`;
+                            feedItem.appendChild(varietal);
+
+                            const vintage = document.createElement("p");
+                            vintage.textContent = `Vintage: ${new Date(item.vintage).getFullYear()}`;
+                            feedItem.appendChild(vintage);
+
+                            const price = document.createElement("p");
+                            price.className = "price";
+                            price.textContent = `Price: $${item.price}`;
+                            feedItem.appendChild(price);
+
+                            feedContainer.appendChild(feedItem);
+                        });
+                    })
+                    .catch((error) => {
+                        console.error("Error fetching data:", error);
+                    });
+            });
+        </script>
+    </body>
+</html>
