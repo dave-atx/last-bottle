@@ -12,11 +12,14 @@ struct Offer: Codable, Identifiable {
     var name: String
     var varietal: String?
     var vintage: String?
+    var country: String?
+    var region: String?
+    var appellation: String?
+    var bottleSize: String?
     var price: Int
     var retail: Int?
     var bestWeb: Int?
     var image: String
-    var purchaseUrl: String?
     
     var imageURL : URL? {
         get {

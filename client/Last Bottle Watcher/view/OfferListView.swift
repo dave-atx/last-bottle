@@ -26,8 +26,8 @@ struct OfferListView: View {
 
 #Preview {
     let offers = [
-        Offer(id: "1234", name: "Great Napa Valley Chard 2024", price: 25, image: "https://s3.amazonaws.com/lastbottle/products/LBRDFJJ5-319332.jpg", purchaseUrl: "https://lastbottlewines.com"),
-        Offer(id: "1234", name: "Great Napa Valley Chard 2024", price: 25, image: "https://s3.amazonaws.com/lastbottle/products/LBRDFJJ5-319332.jpg", purchaseUrl: "https://lastbottlewines.com")
+        Offer(id: "1234", name: "Great Napa Valley Chard 2024", price: 25, image: "https://s3.amazonaws.com/lastbottle/products/LBRDFJJ5-319332.jpg"),
+        Offer(id: "1234", name: "Great Napa Valley Chard 2024", price: 25, image: "https://s3.amazonaws.com/lastbottle/products/LBRDFJJ5-319332.jpg")
     ]
     var offerModel = OfferModel()
     offerModel.offers = offers
