@@ -18,17 +18,8 @@ internal_port = 8080
 force_https = true
 auto_stop_machines = true
 auto_start_machines = true
-min_machines_running = 0
+min_machines_running = 1
 processes = ['app']
-
-[[services.http_checks]]
-grace_period = "3s"
-interval = "30s"
-restart_limit = 3
-timeout = "2s"
-method = "get"
-protocol = "http"
-path = "/api/v1/healthcheck"
 
 [[vm]]
 size = 'shared-cpu-1x'
