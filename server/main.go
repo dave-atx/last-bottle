@@ -30,13 +30,15 @@ const lastbottle_url = "https://www.lastbottlewines.com/"
 
 type Offer struct {
 	ID          string      `json:"id"`
+	CreatedAt   string      `json:"created_at"`
 	Name        string      `json:"name"`
-	Varietal    string      `json:"varietal"`
-	Country     string      `json:"country"`
-	Region      string      `json:"region"`
-	Appellation string      `json:"appellation"`
-	Vintage     string      `json:"vintage"`
-	BottleSize  string      `json:"bottle_size"`
+	Varietal    string      `json:"varietal,omitempty"`
+	Country     string      `json:"country,omitempty"`
+	Type        string      `json:"type,omitempty"`
+	Region      string      `json:"region,omitempty"`
+	Appellation string      `json:"appellation,omitempty"`
+	Vintage     string      `json:"vintage,omitempty"`
+	BottleSize  string      `json:"bottle_size,omitempty"`
 	Price       json.Number `json:"price"`
 	Retail      json.Number `json:"retail"`
 	BestWeb     json.Number `json:"best_web"`
@@ -114,6 +116,7 @@ func fetchAndParse(url string) (*Offer, error) {
 	json.Unmarshal([]byte(matches[1]), &detailPage)
 
 	offer.Name = strings.TrimSpace(detailPage.ProductName)
+	offer.Type = detailPage.Type
 	offer.Varietal = detailPage.Varietal
 	offer.Region = detailPage.Region
 	offer.Appellation = detailPage.Appellation
@@ -130,6 +133,8 @@ func fetchAndParse(url string) (*Offer, error) {
 	}
 	if len(offer.Vintage) == 4 {
 		offer.Vintage = fmt.Sprintf("%s-01-01", offer.Vintage)
+	} else {
+		offer.Vintage = "" // catch "NV"
 	}
 
 	return offer, nil
