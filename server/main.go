@@ -30,7 +30,7 @@ const lastbottle_url = "https://www.lastbottlewines.com/"
 
 type Offer struct {
 	ID          string      `json:"id"`
-	CreatedAt   string      `json:"created_at"`
+	CreatedAt   string      `json:"created_at,omitempty"`
 	Name        string      `json:"name"`
 	Varietal    string      `json:"varietal,omitempty"`
 	Country     string      `json:"country,omitempty"`
